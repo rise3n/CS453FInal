@@ -9,7 +9,7 @@ Eugene Zhang 2005
 #ifndef __LEARNPLY_H__
 #define __LEARNPLY_H__
 
-
+#pragma once
 #include "ply.h"
 #include "icVector.H"
 
@@ -19,6 +19,26 @@ const double PI=3.1415926535898;
 /* forward declarations */
 class Quad;
 class Edge;
+
+
+enum CRIT_TYPE {
+	MINIMUM,
+	MAXIMUM,
+	SADDLE
+
+};
+
+
+struct CriticalPoint
+{
+	icVector3 loc;
+	CRIT_TYPE type;
+
+	bool operator==(const CriticalPoint& other) const {
+		return loc == other.loc && type == other.type;
+	}
+};
+
 
 class Vertex {
 public:
@@ -40,8 +60,13 @@ public:
 
 	icVector3 normal;
 	void *other_props = NULL;
+	Vertex **neighbors;
+	int num_neighbors;
+
 public:
+	Vertex() { x = 0; y = 0; z = 0; } //default constructor taking no param
 	Vertex(double xx, double yy, double zz) { x = xx; y = yy; z = zz; }
+	void findNeighbor();
 };
 
 class Edge {
@@ -116,11 +141,11 @@ public:
 	/*utilties*/
 	Quad* find_common_edge(Quad*, Vertex*, Vertex*);
 	Quad* other_quad(Edge*, Quad*);
+	Quad* findquad(CriticalPoint);
 
 	/*feel free to add more to help youself*/
 	void write_info();
 	void write_file(FILE *);
-
 
 	/*initialization and finalization*/
 	void initialize();
