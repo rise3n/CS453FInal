@@ -15,6 +15,7 @@ The polygon data structure
 #include "icMatrix.H"
 #include "polyhedron.h"
 #include "ply_io.h"
+#include <algorithm>
 
 static PlyFile* in_ply;
 
@@ -861,6 +862,75 @@ void Polyhedron::average_normals()
 			vlist[i]->normal += vlist[i]->quads[j]->normal;
 		normalize(vlist[i]->normal);
 	}
+}
+
+
+/**********************************
+find all neighbors of a given vertex V by loop through all edges connect to V
+
+***********************************/
+void Vertex::findNeighbor()
+{
+	Edge *e;
+	this->neighbors = new Vertex * [nedges];
+	num_neighbors = 0;
+
+	for (int i = 0; i < nedges; i++)
+	{
+		e = edges[i];
+		for (int j = 0; j < 2; j++) {
+			Vertex *u = e->verts[j];
+			if (u != this) {
+				this->neighbors[i] = u;
+				num_neighbors++;
+			}
+		}
+	}
+}
+
+/*
+find the quad with extreme p in it
+*/
+Quad* Polyhedron::findquad(CriticalPoint P)
+{
+	double x1, x2, y1, y2;
+	icVector3 loc = P.loc;
+	int qindex = -1;
+
+	for (int i = 0; i < nquads; i++)
+	{
+		x1 = INFINITY;
+		x2 = -INFINITY;
+		y1 = INFINITY;
+		y2 = -INFINITY;
+
+		for (int j = 0; j < 4; j++)
+		{
+			Vertex* v = qlist[i]->verts[j];
+
+			if (qlist[i]->verts[j]->x < x1)
+				x1 = qlist[i]->verts[j]->x;
+			if (qlist[i]->verts[j]->y < y1)
+				y1 = qlist[i]->verts[j]->y;
+			if (qlist[i]->verts[j]->x > x2)
+				x2 = qlist[i]->verts[j]->x;
+			if (qlist[i]->verts[j]->y > y2)
+				y2 = qlist[i]->verts[j]->y;
+
+		}
+		if ((x1 <= loc.x &&  loc.x <= x2) && (y1 <= loc.y && loc.y <= y2))
+			qindex = i;
+	}
+
+
+	//compare it to P.loc, if x1<x0<x2, y1<y0<y2, then it is in the quad
+
+
+	if (qindex == -1)
+		return NULL; //no quad is find to contain the given extreme P
+	else
+		return qlist[qindex];
+
 }
 
 

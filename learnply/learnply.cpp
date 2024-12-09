@@ -124,17 +124,13 @@ int main(int argc, char* argv[])
 	//say randomly reserve some extreme points
 	std::vector<CriticalPoint> reserved_extreme = randomReserve(extremes);
 
-	LocalSimplification* LTS = new LocalSimplification(extremes, reserved_extreme);
-	std::vector<Vertex> reordered_sequence = LTS->LocalTopologicalSimplification();
-	std::vector<Vertex> merged_sequence = LTS->merge(poly->vlist,reordered_sequence);//not sure if we should use vlist here, use it for now
+	LocalSimplification *LTS = new LocalSimplification(extremes, reserved_extreme, poly);
+	std::vector<Vertex*> reordered_sequence = LTS->LocalTopologicalSimplification();
+	//std::vector<Vertex> merged_sequence = LTS->merge(poly->vlist,reordered_sequence);//not sure if we should use vlist here, use it for now
 
 	//Polyhedron* newpoly = poly.deepcopy(); // I want a copy of poly here, leave this for now
 
 	//visualize newpoly here
-
-
-
-
 
 	/*the render function and callback registration*/
 	glutKeyboardFunc(keyboard);

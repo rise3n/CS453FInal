@@ -4,12 +4,6 @@
 #include <vector>
 #include <unordered_map>
 
-enum CRIT_TYPE {
-	MINIMUM,
-	MAXIMUM,
-	SADDLE
-
-};
 
 enum COLOR_SCHEME {
 	SOLID,
@@ -20,18 +14,10 @@ enum COLOR_SCHEME {
 };
 
 
-struct CriticalPoint
-{
-	icVector3 loc;
-	CRIT_TYPE type;
-
-};
-
-
 class ScalarTopology
 {
 private:
-	Polyhedron* m_poly;
+	Polyhedron *m_poly;
 	double scalar_min;
 	double scalar_max;
 
