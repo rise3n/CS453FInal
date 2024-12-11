@@ -60,12 +60,12 @@ def process_ct_scan(input_file, downsize_file, output_file):
 
 if __name__ == "__main__":
     input_files = [
-        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\ct_scans\01.jpeg",
-        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\ct_scans\02.jpeg",
-        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\ct_scans\N01.jpeg",
-        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\ct_scans\N010.jpeg",
-        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\ct_scans\V01.jpeg",
-        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\ct_scans\V010.jpeg"
+        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\01.jpeg",
+        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\02.jpeg",
+        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\N01.jpeg",
+        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\N010.jpeg",
+        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\V01.jpeg",
+        r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\V010.jpeg"
     ]
 
     downsize_dir = r"C:\Users\joyli\junior_fall\sci_visual\CS453FInal\data\downsized_ct_scans"
