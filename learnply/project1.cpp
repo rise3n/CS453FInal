@@ -100,7 +100,7 @@ void height(Polyhedron* poly) {
 		// change the height of polyhedron based on the scalar value
 		double l = (s_v - m) / (M - m);
 
-		vertex->z = l * 10;
+		vertex->z = l * 100;
 	}
 }
 

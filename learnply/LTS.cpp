@@ -1,4 +1,5 @@
 #include "LTS.h"
+#include <iostream>
 
 
 // start local simplification process
@@ -37,19 +38,16 @@ void LocalSimplification::superlevel_set_propagation(Polyhedron* poly)
 	//choose the one with largest scalar and start propagation from that point.
 	for (int i = 0; i < num_remove; i++) 
 	{
+
 		std::vector<Vertex*> neighbors;
 		std::vector<Vertex*> visited;
 		q = poly->findquad(extreme_remove[i]);
 		for (int j = 0; j < 4; j++) {
-			neighbors.push_back(q->verts[j]);
 			if (q->verts[j]->scalar > max) {
 				max = q->verts[j]->scalar;
 				current_node = q->verts[j];
 			}
 		}
-		//remove current node 
-		neighbors.erase(std::remove(neighbors.begin(), neighbors.end(), current_node), neighbors.end());
-
 
 		extreme_scalar = current_node->scalar;
 		while (true) {
@@ -63,6 +61,9 @@ void LocalSimplification::superlevel_set_propagation(Polyhedron* poly)
 			}
 			// move to largest neighbor
 			nextnode = LargestNeighbor(neighbors);
+
+			if (nextnode == NULL)
+				break;
 			
 			//if next node scalar value is larger than the maximum of extreme point, then stop propagation
 			if (nextnode->scalar > extreme_scalar)
@@ -77,7 +78,8 @@ void LocalSimplification::superlevel_set_propagation(Polyhedron* poly)
 				current_node = nextnode;
 			}
 		}
-		superlevelSetList.push_back(visited);
+		if(visited.size() > 1)
+			superlevelSetList.push_back(visited);
 	}
 }
 
@@ -137,6 +139,7 @@ f: superlevel set
 std::vector<Vertex*> LocalSimplification::reorder(std::vector<Vertex*> f)
 {
 	std::vector<Vertex*> g, f_prime, f_primeNext;
+	int maxIteration = 100;
 	bool authorized = false;
 	std::vector<Vertex*> authorized_min; // there could be multiple authorized_min
 
@@ -152,7 +155,7 @@ std::vector<Vertex*> LocalSimplification::reorder(std::vector<Vertex*> f)
 	f_prime = f;
 	int counter = 0;
 	// forward pass and backward pass reordering as described in paper
-	while (true) {
+	while (counter < maxIteration) {
 		f_prime = this->positiveDirection(f_prime, authorized_max, authorized_min);
 		authorized = this->checkExtremeLegal(f_prime, authorized_max, authorized_min);
 		if (authorized == true) 
@@ -400,6 +403,10 @@ Vertex* LocalSimplification::LargestNeighbor(std::vector<Vertex*> neighbors) {
 	
 	Vertex* ptr = NULL;
 	double max = -INFINITY;
+
+	if (neighbors.size() == 0)
+		return NULL;
+
 	for (int i = 0; i < neighbors.size(); i++)
 	{
 		if (neighbors[i]->scalar > max)
@@ -485,8 +492,8 @@ std::vector<Vertex*> Authorized_minAssign(std::vector<Vertex*> f, Vertex* author
 
 	}
 
-
-	for(int i=0;i<f.size();i++)
+	int i = 0;
+	while (!find && i<f.size())
 	{
 		for (int j = 0; j < f[i]->num_neighbors; j++)
 		{
@@ -501,9 +508,8 @@ std::vector<Vertex*> Authorized_minAssign(std::vector<Vertex*> f, Vertex* author
 				break;
 			}
 		}
+		i += 1;
 	}
 	
-
+	return authorized_min;
 }
-
-

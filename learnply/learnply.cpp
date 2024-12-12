@@ -80,7 +80,7 @@ void mousewheel(int wheel, int direction, int x, int y);
 void special(int key, int x, int y);
 void reshape(int width, int height);
 std::vector<CriticalPoint> extremesplit(std::vector<CriticalPoint> criticals);
-std::vector<CriticalPoint> randomReserve(std::vector<CriticalPoint> extreme);
+std::vector<CriticalPoint> randomReserve(std::vector<CriticalPoint> extreme, double ratio);
 
 /******************************************************************************
 Main program.
@@ -93,6 +93,8 @@ int main(int argc, char* argv[])
 		printf("Usage: learnply <file>\n");
 		return 1;
 	}
+
+	double ratio = 0.1;
 
 	/*load mesh from ply file*/
 	FILE* this_file = fopen(argv[1], "r");
@@ -122,7 +124,7 @@ int main(int argc, char* argv[])
 	std::vector<CriticalPoint> extremes = extremesplit(criticals);
 
 	//say randomly reserve some extreme points
-	std::vector<CriticalPoint> reserved_extreme = randomReserve(extremes);
+	std::vector<CriticalPoint> reserved_extreme = randomReserve(extremes, ratio);
 
 	LocalSimplification *LTS = new LocalSimplification(extremes, reserved_extreme, poly);
 	std::vector<Vertex*> reordered_sequence = LTS->LocalTopologicalSimplification();
@@ -728,9 +730,9 @@ std::vector<CriticalPoint> extremesplit(std::vector<CriticalPoint> criticals)
 	return extremes;
 }
 
-std::vector<CriticalPoint> randomReserve(std::vector<CriticalPoint> extreme)
+std::vector<CriticalPoint> randomReserve(std::vector<CriticalPoint> extreme, double ratio = 0.5)
 {
-	int num_reserve = floor(0.5 * extreme.size());
+	int num_reserve = floor(ratio * extreme.size());
 	std::vector<CriticalPoint> reserved_extreme;
 
 	for (int i = 0; i < num_reserve; i++) {
