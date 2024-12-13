@@ -120,10 +120,11 @@ void ScalarTopology::calcCriticals()
 		criticals.push_back(crit);
 	}
 
+	/*
 	for (const CriticalPoint& cp : criticals) {
 		double s = cp.loc.z;
 		crit_contours.push_back(calcContour(s));
-	}
+	}*/
 
 }
 

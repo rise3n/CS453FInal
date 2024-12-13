@@ -1,14 +1,28 @@
 #include "LTS.h"
+#include <iostream>
+#include <omp.h>
+#include <thread>
+#include <mutex>
+#include <ctime>
 
 
 // start local simplification process
 
-LocalSimplification::LocalSimplification(std::vector<CriticalPoint> extremes, std::vector<CriticalPoint> reserved_extreme, Polyhedron* poly)
+LocalSimplification::LocalSimplification(std::vector<CriticalPoint> extremes, std::vector<CriticalPoint> reserved_extreme, Polyhedron* poly, bool parallel = false)
 {
 	this->num_remove = 0;
 	this->extreme_remove = Extremes2remove(extremes, reserved_extreme);
 	//this->superlevelSetList.resize(num_remove);
-	superlevel_set_propagation(poly);
+	if (parallel == true)
+	{
+		parallel_superlevel_set_propagation(poly);
+		eliminateDupSet();
+	}
+	else
+	{
+		superlevel_set_propagation(poly);
+		eliminateDupSet();
+	}
 	Degreecalc();
 }
 
@@ -25,31 +39,113 @@ expand superlevel_set_propagation
 at step 1, simply take 4 vertices of the quad as neighbors
 after that, follow what depicted in paper
 */
-void LocalSimplification::superlevel_set_propagation(Polyhedron* poly) 
+void LocalSimplification::parallel_superlevel_set_propagation(Polyhedron* poly) 
 {
 
 	Quad *q;
 	Vertex *current_node, *nextnode;
 	double max = -INFINITY;
 	double extreme_scalar = 0;
+	std::vector<std::thread> threads;
+	std::mutex mtx;
+
+	//first get the quad with extreme inside the quad, register 4 vertices as neighbor
+	//choose the one with largest scalar and start propagation from that point. 
+	std::clock_t start = std::clock();
+	for (int i = 0; i < num_remove; i++) 
+	{
+		threads.emplace_back(&LocalSimplification::singleSuperLevelProp, this, poly, extreme_remove[i], i, std::ref(mtx));
+		//singleSuperLevelProp(poly, extreme_remove[i]);
+	}
+
+	for (auto& th : threads) 
+	{
+		th.join();
+	}
+	std::clock_t end = std::clock();
+	double runtime = (end - start) / CLOCKS_PER_SEC;
+	std::cout << "parallel run time is: " << runtime << "seconds" << "with " << num_remove << "threads in total." << std::endl;
+}
+
+void LocalSimplification::singleSuperLevelProp(Polyhedron* poly, CriticalPoint extreme_i, int i, std::mutex & mtx) 
+{
+	std::vector<Vertex*> neighbors;
+	std::vector<Vertex*> visited;
+	Quad* q;
+	double max = -INFINITY;
+	double extreme_scalar = 0;
+	Vertex* current_node, * nextnode;
+	std::lock_guard<std::mutex> lock(mtx);
+
+	q = poly->findquad(extreme_i);
+	for (int j = 0; j < 4; j++) {
+		if (q->verts[j]->scalar > max) {
+			max = q->verts[j]->scalar;
+			current_node = q->verts[j];
+		}
+	}
+
+	extreme_scalar = current_node->scalar;
+	while (true) {
+		current_node->findNeighbor();
+
+		//iteratively add neighbors of current node to neighbors list
+		for (int j = 0; j < current_node->num_neighbors; j++) {
+			if ((std::find(neighbors.begin(), neighbors.end(), current_node->neighbors[j]) == neighbors.end()) && //if it is not in neighbors list
+				(std::find(visited.begin(), visited.end(), current_node->neighbors[j]) == visited.end())) //if not find, which means its unvisited
+				neighbors.push_back(current_node->neighbors[j]);
+		}
+		// move to largest neighbor
+		nextnode = LargestNeighbor(neighbors);
+
+		if (nextnode == NULL)
+			break;
+
+		//if next node scalar value is larger than the maximum of extreme point, then stop propagation
+		if (nextnode->scalar > extreme_scalar)
+		{
+			visited.push_back(current_node);
+			break;
+		}
+		else
+		{
+			neighbors.erase(std::remove(neighbors.begin(), neighbors.end(), nextnode), neighbors.end());
+			visited.push_back(current_node);
+			current_node = nextnode;
+		}
+	}
+	if (visited.size() > 1 && visited.size()<500)
+	{
+		superlevelSetList.push_back(visited);
+		std::cout << "thread " << i << " complete" << std::endl;
+	}
+}
+
+
+void LocalSimplification::superlevel_set_propagation(Polyhedron* poly)
+{
+
+	Quad* q;
+	Vertex* current_node, * nextnode;
+	double max = -INFINITY;
+	double extreme_scalar = 0;
+
+	std::clock_t start = std::clock();
 
 	//first get the quad with extreme inside the quad, register 4 vertices as neighbor
 	//choose the one with largest scalar and start propagation from that point.
-	for (int i = 0; i < num_remove; i++) 
+	for (int i = 0; i < num_remove; i++)
 	{
+
 		std::vector<Vertex*> neighbors;
 		std::vector<Vertex*> visited;
 		q = poly->findquad(extreme_remove[i]);
 		for (int j = 0; j < 4; j++) {
-			neighbors.push_back(q->verts[j]);
 			if (q->verts[j]->scalar > max) {
 				max = q->verts[j]->scalar;
 				current_node = q->verts[j];
 			}
 		}
-		//remove current node 
-		neighbors.erase(std::remove(neighbors.begin(), neighbors.end(), current_node), neighbors.end());
-
 
 		extreme_scalar = current_node->scalar;
 		while (true) {
@@ -63,7 +159,10 @@ void LocalSimplification::superlevel_set_propagation(Polyhedron* poly)
 			}
 			// move to largest neighbor
 			nextnode = LargestNeighbor(neighbors);
-			
+
+			if (nextnode == NULL)
+				break;
+
 			//if next node scalar value is larger than the maximum of extreme point, then stop propagation
 			if (nextnode->scalar > extreme_scalar)
 			{
@@ -77,8 +176,13 @@ void LocalSimplification::superlevel_set_propagation(Polyhedron* poly)
 				current_node = nextnode;
 			}
 		}
-		superlevelSetList.push_back(visited);
+		//if (visited.size() > 1 && visited.size() < 1000)
+		if (visited.size()>1 && visited.size() < 500)
+			superlevelSetList.push_back(visited);
 	}
+	std::clock_t end = std::clock();
+	double runtime = (end - start) / CLOCKS_PER_SEC;
+	std::cout << "non parallel run time is: " << runtime << "seconds" << std::endl;
 }
 
 
@@ -91,6 +195,7 @@ std::vector<Vertex*> LocalSimplification::LocalTopologicalSimplification()
 	std::vector<Vertex*> g; // reordered g 
 	//first initialize l_0 based on global order f
 	std::vector<Vertex*> f;
+	std::mutex mtx;
 	//Initializef();
 
 	//go through each superlevel set and generate new ordering
@@ -100,7 +205,7 @@ std::vector<Vertex*> LocalSimplification::LocalTopologicalSimplification()
 		int length = superlevelSetList[i].size();
 		std::vector<double> values = getValue(superlevelSetList[i]); // should be a list of scalars, leave this for now
 		g = reorder(superlevelSetList[i]);
-		g = assign(values, g); //assign values based on new ordering g
+		g = assign(values, g, i); //assign values based on new ordering g
 	}
 
 	return g;
@@ -110,11 +215,23 @@ std::vector<Vertex*> LocalSimplification::LocalTopologicalSimplification()
 /*
 assign values back to the new ordering g
 */
-std::vector<Vertex*> LocalSimplification::assign(std::vector<double> values, std::vector<Vertex*> g) {
+std::vector<Vertex*> LocalSimplification::assign(std::vector<double> values, std::vector<Vertex*> g, int setnumber) {
 	std::sort(values.begin(), values.end(), std::greater<double>());
+	int idx = 0;
 	for (int i = 0; i < g.size(); i++)
 		g[i]->scalar = values[i];
 	
+	bool infexist = false;
+	for (int i = 0; i < g.size(); i++)
+	{
+		if (g[i]->scalar == INFINITY || g[i]->scalar == -INFINITY)
+		{
+			infexist = true;
+			idx = i;
+		}
+	}
+
+	std::cout << "inf exist at " << setnumber << "superlevel set at " << idx << std::endl;
 	return g;
 }
 
@@ -137,6 +254,7 @@ f: superlevel set
 std::vector<Vertex*> LocalSimplification::reorder(std::vector<Vertex*> f)
 {
 	std::vector<Vertex*> g, f_prime, f_primeNext;
+	int maxIteration = 100;
 	bool authorized = false;
 	std::vector<Vertex*> authorized_min; // there could be multiple authorized_min
 
@@ -152,7 +270,7 @@ std::vector<Vertex*> LocalSimplification::reorder(std::vector<Vertex*> f)
 	f_prime = f;
 	int counter = 0;
 	// forward pass and backward pass reordering as described in paper
-	while (true) {
+	while (counter < maxIteration) {
 		f_prime = this->positiveDirection(f_prime, authorized_max, authorized_min);
 		authorized = this->checkExtremeLegal(f_prime, authorized_max, authorized_min);
 		if (authorized == true) 
@@ -400,6 +518,10 @@ Vertex* LocalSimplification::LargestNeighbor(std::vector<Vertex*> neighbors) {
 	
 	Vertex* ptr = NULL;
 	double max = -INFINITY;
+
+	if (neighbors.size() == 0)
+		return NULL;
+
 	for (int i = 0; i < neighbors.size(); i++)
 	{
 		if (neighbors[i]->scalar > max)
@@ -485,8 +607,8 @@ std::vector<Vertex*> Authorized_minAssign(std::vector<Vertex*> f, Vertex* author
 
 	}
 
-
-	for(int i=0;i<f.size();i++)
+	int i = 0;
+	while (!find && i<f.size())
 	{
 		for (int j = 0; j < f[i]->num_neighbors; j++)
 		{
@@ -501,9 +623,32 @@ std::vector<Vertex*> Authorized_minAssign(std::vector<Vertex*> f, Vertex* author
 				break;
 			}
 		}
+		i += 1;
 	}
 	
-
+	return authorized_min;
 }
 
+//due to unhandled issue of overlapping superlevel set, we need this to eliminate potential overlapping sets for the project to work
+
+void LocalSimplification::eliminateDupSet()
+{
+	std::vector<Vertex*> allnodes;
+	for (int i = 0; i < superlevelSetList.size(); i++)
+	{
+		std::vector<Vertex*> currentset = superlevelSetList[i];
+		for (int j = 0; j < currentset.size(); j++)
+		{
+			if (std::find(allnodes.begin(), allnodes.end(), currentset[j]) != allnodes.end())// if there is overlapping vertex, remove the set
+			{
+				superlevelSetList.erase(std::remove(superlevelSetList.begin(), superlevelSetList.end(), currentset), superlevelSetList.end());
+				break;
+			}
+			else 
+				allnodes.push_back(currentset[j]);
+		}
+
+		
+	}
+}
 
