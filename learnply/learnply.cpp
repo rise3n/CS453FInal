@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	double ratio = 0.5; // set to 0.1 for work simplification not test it under the case of .5
+	double ratio = 0.1; // set to 0.1 for work simplification not test it under the case of .5
 
 	/*load mesh from ply file*/
 	FILE* this_file = fopen(argv[1], "r");
@@ -126,8 +126,10 @@ int main(int argc, char* argv[])
 	//say randomly reserve some extreme points
 	std::vector<CriticalPoint> reserved_extreme = randomReserve(extremes, ratio);
 
-	//LocalSimplification *LTS = new LocalSimplification(extremes, reserved_extreme, poly, false);
-	//std::vector<Vertex*> reordered_sequence = LTS->LocalTopologicalSimplification();
+	//comment these two lines to visualize the original data
+
+	LocalSimplification *LTS = new LocalSimplification(extremes, reserved_extreme, poly, false);
+	std::vector<Vertex*> reordered_sequence = LTS->LocalTopologicalSimplification();
 	//std::vector<Vertex> merged_sequence = LTS->merge(poly->vlist,reordered_sequence);//not sure if we should use vlist here, use it for now
 
 	//Polyhedron* newpoly = poly.deepcopy(); // I want a copy of poly here, leave this for now
